@@ -23,15 +23,14 @@
     <div id="status">Initializing...</div>
     <canvas id="renderCanvas"></canvas>
 
-    <!-- Babylon.js Scripts (CDN) -->
+    <!-- Babylon.js Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@babylonjs/core@6.20.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babylonjs/loaders@6.20.0"></script>
 
-    <!-- Floating Model Viewer Script -->
+    <!-- Floating Model Viewer -->
     <script type="module">
         import FloatingModelViewer from './src/FloatingModelViewer.js';
-        
-        // Update status when the app starts
+
         const statusDiv = document.getElementById('status');
         try {
             new FloatingModelViewer();
