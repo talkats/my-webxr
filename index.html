@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Floating XR Model Viewer - Fixed</title>
+    <title>Floating XR Model Viewer - Debug</title>
     <style>
         html, body {
             width: 100%;
@@ -34,6 +34,22 @@
             background: rgba(255,255,255,0.8);
             padding: 10px;
             border-radius: 5px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        #debug {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+            max-width: 80%;
+            max-height: 80%;
+            overflow: auto;
         }
     </style>
 </head>
@@ -46,14 +62,14 @@
             <input type="range" id="height" min="0" max="2" step="0.1" value="1.6">
             <span id="height-value">1.6</span>m
         </div>
+        <button id="show-debug">Show Debug Info</button>
     </div>
     <div class="status" id="status">Ready</div>
+    <div id="debug"></div>
     <canvas id="renderCanvas"></canvas>
 
-    <!-- Load Babylon.js and its modules -->
-    <script src="https://cdn.babylonjs.com/babylon.js"></script>
-    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
-    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="https://preview.babylonjs.com/babylon.js"></script>
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
 
     <script>
         class FloatingModelViewer {
@@ -62,123 +78,140 @@
                 this.engine = new BABYLON.Engine(this.canvas, true);
                 this.scene = new BABYLON.Scene(this.engine);
                 this.currentModel = null;
-                this.isModelGrabbed = false;
+                this.debugLog = [];
+                this.setupDebugUI();
                 this.init();
             }
 
+            log(message, error = null) {
+                const timestamp = new Date().toISOString();
+                const logMessage = `${timestamp}: ${message}`;
+                this.debugLog.push(logMessage);
+                if (error) {
+                    this.debugLog.push(`Error details: ${error.toString()}`);
+                    console.error(error);
+                }
+                this.updateDebugDisplay();
+                this.updateStatus(message);
+            }
+
+            setupDebugUI() {
+                const debugDiv = document.getElementById('debug');
+                document.getElementById('show-debug').onclick = () => {
+                    debugDiv.style.display = debugDiv.style.display === 'none' ? 'block' : 'none';
+                };
+            }
+
+            updateDebugDisplay() {
+                const debugDiv = document.getElementById('debug');
+                debugDiv.innerHTML = this.debugLog.join('<br>');
+            }
+
             async init() {
-                // Camera setup
-                this.camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 1.6, -1));
-                this.camera.setTarget(BABYLON.Vector3.Zero());
-                this.camera.attachControl(this.canvas, true);
-
-                // Lighting
-                const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), this.scene);
-
-                // XR setup
                 try {
+                    this.log('Initializing scene...');
+                    
+                    this.camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 1.6, -1));
+                    this.camera.setTarget(BABYLON.Vector3.Zero());
+                    this.camera.attachControl(this.canvas, true);
+                    
+                    const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), this.scene);
+                    
+                    this.log('Setting up XR...');
                     const xr = await this.scene.createDefaultXRExperienceAsync({
                         uiOptions: { sessionMode: "immersive-ar" }
                     });
-
-                    // Setup model upload
+                    
                     this.setupModelUpload();
-
-                    // Create default sphere
                     this.createDefaultModel();
-
-                    // Start render loop
-                    this.engine.runRenderLoop(() => {
-                        this.scene.render();
-                    });
-
-                    window.addEventListener("resize", () => {
-                        this.engine.resize();
-                    });
-
-                    this.updateStatus("XR initialized successfully");
+                    
+                    this.engine.runRenderLoop(() => this.scene.render());
+                    window.addEventListener("resize", () => this.engine.resize());
+                    
+                    this.log('Initialization complete');
                 } catch (error) {
-                    this.updateStatus("XR initialization failed: " + error.message);
+                    this.log('Initialization failed', error);
                 }
             }
 
             createDefaultModel() {
-                const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {
-                    diameter: 0.2
-                }, this.scene);
-                sphere.position = new BABYLON.Vector3(0, 1.6, -0.5);
-                this.currentModel = sphere;
-
-                // Add rotation animation
-                this.scene.registerBeforeRender(() => {
-                    if (this.currentModel && !this.isModelGrabbed) {
-                        this.currentModel.rotate(BABYLON.Vector3.Up(), 0.01);
-                    }
-                });
+                try {
+                    this.log('Creating default model...');
+                    const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {
+                        diameter: 0.2
+                    }, this.scene);
+                    sphere.position = new BABYLON.Vector3(0, 1.6, -0.5);
+                    this.currentModel = sphere;
+                    
+                    this.scene.registerBeforeRender(() => {
+                        if (this.currentModel && this.currentModel.name === "sphere") {
+                            this.currentModel.rotate(BABYLON.Vector3.Up(), 0.01);
+                        }
+                    });
+                    this.log('Default model created');
+                } catch (error) {
+                    this.log('Error creating default model', error);
+                }
             }
 
             setupModelUpload() {
                 const fileInput = document.getElementById("model-upload");
                 
                 fileInput.onchange = async (event) => {
-                    if (event.target.files && event.target.files[0]) {
-                        const file = event.target.files[0];
+                    const file = event.target.files?.[0];
+                    if (!file) {
+                        this.log('No file selected');
+                        return;
+                    }
+
+                    this.log(`Starting to load model: ${file.name}`);
+                    
+                    try {
+                        // Create blob URL
+                        const blobUrl = URL.createObjectURL(file);
+                        this.log('Created blob URL');
+
+                        // Remove existing model
+                        if (this.currentModel) {
+                            this.currentModel.dispose();
+                            this.log('Disposed existing model');
+                        }
+
+                        // Load the model
+                        this.log('Importing mesh...');
+                        const result = await BABYLON.SceneLoader.ImportMeshAsync(
+                            "", 
+                            blobUrl,
+                            "",
+                            this.scene
+                        );
+
+                        this.log('Mesh imported successfully');
                         
-                        // Create a FileReader
-                        const reader = new FileReader();
+                        // Get the root mesh
+                        this.currentModel = result.meshes[0];
                         
-                        reader.onload = async (e) => {
-                            try {
-                                this.updateStatus("Loading model...");
-                                
-                                // Remove existing model if any
-                                if (this.currentModel) {
-                                    this.currentModel.dispose();
-                                }
-
-                                // Load the model using ArrayBuffer
-                                const modelData = e.target.result;
-                                const result = await BABYLON.SceneLoader.ImportMeshAsync(
-                                    "", 
-                                    "data:", 
-                                    file.name,
-                                    this.scene,
-                                    null,
-                                    ".glb"
-                                );
-
-                                // Get the root mesh
-                                this.currentModel = result.meshes[0];
-                                
-                                // Position the model
-                                const height = parseFloat(document.getElementById("height").value);
-                                this.currentModel.position = new BABYLON.Vector3(0, height, -0.5);
-                                
-                                // Scale the model to reasonable size if needed
-                                const boundingInfo = this.currentModel.getHierarchyBoundingVectors();
-                                const size = boundingInfo.max.subtract(boundingInfo.min);
-                                const maxSize = Math.max(size.x, size.y, size.z);
-                                if (maxSize > 1) {
-                                    const scale = 1 / maxSize;
-                                    this.currentModel.scaling = new BABYLON.Vector3(scale, scale, scale);
-                                }
-
-                                this.updateStatus("Model loaded successfully");
-                            } catch (error) {
-                                console.error("Error loading model:", error);
-                                this.updateStatus("Error loading model: " + error.message);
-                                // Recreate default model if loading fails
-                                this.createDefaultModel();
-                            }
-                        };
-
-                        reader.onerror = (error) => {
-                            this.updateStatus("Error reading file: " + error);
-                            this.createDefaultModel();
-                        };
-
-                        // Read the file as ArrayBuffer
-                        reader.readAsArrayBuffer(file);
+                        // Position the model
+                        const height = parseFloat(document.getElementById("height").value);
+                        this.currentModel.position = new BABYLON.Vector3(0, height, -0.5);
+                        
+                        // Auto-scale the model
+                        const boundingInfo = this.currentModel.getHierarchyBoundingVectors();
+                        const size = boundingInfo.max.subtract(boundingInfo.min);
+                        const maxSize = Math.max(size.x, size.y, size.z);
+                        if (maxSize > 1) {
+                            const scale = 1 / maxSize;
+                            this.currentModel.scaling = new BABYLON.Vector3(scale, scale, scale);
+                        }
+                        
+                        this.log('Model loaded and positioned successfully');
+                        
+                        // Clean up
+                        URL.revokeObjectURL(blobUrl);
+                        
+                    } catch (error) {
+                        this.log('Error loading model', error);
+                        this.createDefaultModel();
                     }
                 };
 
@@ -199,7 +232,6 @@
             }
         }
 
-        // Initialize when page loads
         window.addEventListener("DOMContentLoaded", () => {
             new FloatingModelViewer();
         });
