@@ -59,7 +59,7 @@ class FloatingModelViewer {
             }
 
             console.log("Loading model...");
-            await this.loadModel("https://github.com/talkats/my-webxr/blob/a7dd15375593f244c539c0ae00f190841ef8e48f/Spheres.glb"); // Update path as needed
+            await this.loadModel("./Spheres.glb"); // Update path as needed
             console.log("Model loaded successfully.");
 
             console.log("Starting render loop...");
