@@ -2,6 +2,7 @@ import * as BABYLON from '@babylonjs/core';
 
 class FloatingModelViewer {
     constructor() {
+        console.log("Initializing FloatingModelViewer...");
         this.canvas = document.getElementById("renderCanvas");
         this.engine = new BABYLON.Engine(this.canvas, true);
         this.scene = new BABYLON.Scene(this.engine);
@@ -11,22 +12,26 @@ class FloatingModelViewer {
     }
 
     async init() {
-        // Camera setup
-        this.camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 1.6, -0.5), this.scene);
-        this.camera.attachControl(this.canvas, true);
-        this.camera.setTarget(BABYLON.Vector3.Zero());
-
-        // Lighting
-        const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), this.scene);
-        light.intensity = 1.0;
-
-        // XR setup with hand tracking
         try {
+            console.log("Setting up camera...");
+            // Camera setup
+            this.camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 1.6, -0.5), this.scene);
+            this.camera.attachControl(this.canvas, true);
+            this.camera.setTarget(BABYLON.Vector3.Zero());
+
+            // Lighting
+            console.log("Adding lighting...");
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), this.scene);
+            light.intensity = 1.0;
+
+            // XR setup
+            console.log("Setting up XR...");
             const xr = await this.scene.createDefaultXRExperienceAsync({
                 uiOptions: { sessionMode: "immersive-ar" },
                 optionalFeatures: ["hand-tracking"]
             });
 
+            console.log("XR setup complete.");
             // Enable hand tracking
             const handTrackingFeature = xr.baseExperience.featuresManager.enableFeature(
                 BABYLON.WebXRFeatureName.HAND_TRACKING, 
@@ -41,17 +46,20 @@ class FloatingModelViewer {
                 console.warn("Hand tracking feature could not be enabled.");
             }
 
-            // Load floating model
+            // Load model
+            console.log("Loading model...");
             await this.loadModel("https://raw.githubusercontent.com/talkats/my-webxr/d1dc39a858f3cfc80e5bbc309f25cbdac2e47f33/Spheres.glb");
+            console.log("Model loaded successfully.");
+
+            // Start render loop
+            console.log("Starting render loop...");
+            this.engine.runRenderLoop(() => this.scene.render());
+
+            // Handle window resize
+            window.addEventListener("resize", () => this.engine.resize());
         } catch (error) {
-            console.error("Error setting up XR or loading features:", error);
+            console.error("Initialization failed:", error);
         }
-
-        // Start render loop
-        this.engine.runRenderLoop(() => this.scene.render());
-
-        // Handle window resize
-        window.addEventListener("resize", () => this.engine.resize());
     }
 
     async loadModel(url) {
@@ -63,9 +71,7 @@ class FloatingModelViewer {
                 throw new Error("No meshes found in the model.");
             }
 
-            console.log("Model loaded successfully:", this.currentModel);
-
-            // Position model at eye level
+            // Position model
             this.currentModel.position = new BABYLON.Vector3(0, 1.6, -0.5);
 
             // Add rotation animation
@@ -77,6 +83,8 @@ class FloatingModelViewer {
                     );
                 }
             });
+
+            console.log("Model prepared and added to the scene.");
         } catch (error) {
             console.error("Error loading model:", error);
         }
@@ -91,13 +99,12 @@ class FloatingModelViewer {
             if (controller.inputSource.hand) {
                 console.log("Hand tracking controller added.");
 
-                // Visual feedback for hand tracking
                 controller.onHandJointsUpdatedObservable.add((joints) => {
                     const thumbTip = joints[BABYLON.WebXRHand.THUMB_TIP]?.position;
                     const indexTip = joints[BABYLON.WebXRHand.INDEX_TIP]?.position;
 
                     if (thumbTip && indexTip) {
-                        // Calculate pinch
+                        // Pinch detection
                         const pinchDistance = BABYLON.Vector3.Distance(thumbTip, indexTip);
 
                         if (pinchDistance < handJointScale) {
@@ -107,13 +114,13 @@ class FloatingModelViewer {
                                 lastPinchDistance = pinchDistance;
                             }
 
-                            // Move model with hand
+                            // Move model
                             const palmPosition = joints[BABYLON.WebXRHand.WRIST]?.position;
                             if (palmPosition) {
                                 this.currentModel.position = palmPosition.clone();
                             }
 
-                            // Scale based on pinch change
+                            // Scale model
                             const pinchDelta = pinchDistance - lastPinchDistance;
                             const newScale = Math.max(0.1, initialModelScale * (1 + pinchDelta));
                             this.currentModel.scaling.set(newScale, newScale, newScale);
