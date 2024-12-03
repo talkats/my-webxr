@@ -59,7 +59,7 @@ class FloatingModelViewer {
             }
 
             console.log("Loading model...");
-            await this.loadModel("./Spheres.glb"); // Update path as needed
+            await this.loadModel("Spheres.glb"); // Update path as needed
             console.log("Model loaded successfully.");
 
             console.log("Starting render loop...");
