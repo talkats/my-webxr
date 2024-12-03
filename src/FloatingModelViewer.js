@@ -2,8 +2,18 @@ class FloatingModelViewer {
     constructor() {
         console.log("Initializing FloatingModelViewer...");
         this.canvas = document.getElementById("renderCanvas");
+        if (!this.canvas) {
+            console.error("Canvas element not found!");
+            return;
+        }
+        console.log("Canvas element found.");
+
         this.engine = new BABYLON.Engine(this.canvas, true);
+        console.log("Babylon.js Engine initialized:", this.engine);
+
         this.scene = new BABYLON.Scene(this.engine);
+        console.log("Scene created:", this.scene);
+
         this.currentModel = null;
         this.isModelGrabbed = false;
         this.init();
@@ -38,14 +48,22 @@ class FloatingModelViewer {
         console.log(`Attempting to load model from: ${url}`);
         try {
             const result = await BABYLON.SceneLoader.ImportMeshAsync("", url, "", this.scene);
-            this.currentModel = result.meshes[0] || null;
+            console.log("Model loaded result:", result);
 
+            this.currentModel = result.meshes[0] || null;
             if (!this.currentModel) {
                 throw new Error("No meshes found in the model.");
             }
 
             console.log("Model added to scene:", this.currentModel);
             this.currentModel.position = new BABYLON.Vector3(0, 1.6, -0.5);
+
+            // Add rotation animation
+            this.scene.registerBeforeRender(() => {
+                if (!this.isModelGrabbed && this.currentModel) {
+                    this.currentModel.rotate(BABYLON.Vector3.Up(), 0.005);
+                }
+            });
         } catch (error) {
             console.error("Error loading model:", error);
         }
