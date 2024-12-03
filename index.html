@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Floating XR Model Viewer - Debug</title>
+    <title>AR Model Viewer</title>
     <style>
         html, body {
             width: 100%;
@@ -34,206 +34,197 @@
             background: rgba(255,255,255,0.8);
             padding: 10px;
             border-radius: 5px;
-            max-width: 80%;
-            word-wrap: break-word;
         }
         #debug {
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.8);
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
             color: white;
-            padding: 20px;
-            border-radius: 10px;
-            display: none;
-            max-width: 80%;
-            max-height: 80%;
-            overflow: auto;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            max-width: 300px;
+            z-index: 1000;
         }
     </style>
 </head>
 <body>
     <div class="controls">
-        <button id="xr-button">Start AR</button>
-        <input type="file" id="model-upload" accept=".glb,.gltf">
+        <button id="startAR">Start AR</button>
+        <input type="file" id="modelUpload" accept=".glb">
         <div>
-            <label for="height">Height: </label>
-            <input type="range" id="height" min="0" max="2" step="0.1" value="1.6">
-            <span id="height-value">1.6</span>m
+            <label>Height: <span id="heightValue">1.6</span>m</label>
+            <input type="range" id="heightSlider" min="0" max="2" step="0.1" value="1.6">
         </div>
-        <button id="show-debug">Show Debug Info</button>
     </div>
-    <div class="status" id="status">Ready</div>
+    <div id="status" class="status">Initializing...</div>
     <div id="debug"></div>
-    <canvas id="renderCanvas"></canvas>
+    <canvas id="renderCanvas" touch-action="none"></canvas>
 
-    <script src="https://preview.babylonjs.com/babylon.js"></script>
-    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <!-- Latest Babylon.js versions -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
 
     <script>
-        class FloatingModelViewer {
+        class ARModelViewer {
             constructor() {
                 this.canvas = document.getElementById("renderCanvas");
                 this.engine = new BABYLON.Engine(this.canvas, true);
                 this.scene = new BABYLON.Scene(this.engine);
                 this.currentModel = null;
-                this.debugLog = [];
-                this.setupDebugUI();
+                this.xrHelper = null;
+                this.isInAR = false;
+                
+                this.debug("Initializing AR Model Viewer");
                 this.init();
             }
 
-            log(message, error = null) {
-                const timestamp = new Date().toISOString();
-                const logMessage = `${timestamp}: ${message}`;
-                this.debugLog.push(logMessage);
-                if (error) {
-                    this.debugLog.push(`Error details: ${error.toString()}`);
-                    console.error(error);
-                }
-                this.updateDebugDisplay();
-                this.updateStatus(message);
+            debug(message) {
+                console.log(message);
+                const debug = document.getElementById("debug");
+                const time = new Date().toLocaleTimeString();
+                debug.innerHTML += `${time}: ${message}<br>`;
+                debug.scrollTop = debug.scrollHeight;
             }
 
-            setupDebugUI() {
-                const debugDiv = document.getElementById('debug');
-                document.getElementById('show-debug').onclick = () => {
-                    debugDiv.style.display = debugDiv.style.display === 'none' ? 'block' : 'none';
-                };
-            }
-
-            updateDebugDisplay() {
-                const debugDiv = document.getElementById('debug');
-                debugDiv.innerHTML = this.debugLog.join('<br>');
+            updateStatus(message) {
+                document.getElementById("status").textContent = message;
             }
 
             async init() {
                 try {
-                    this.log('Initializing scene...');
-                    
-                    this.camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 1.6, -1));
-                    this.camera.setTarget(BABYLON.Vector3.Zero());
-                    this.camera.attachControl(this.canvas, true);
-                    
+                    // Create default camera
+                    const camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 1.6, -1.5));
+                    camera.setTarget(BABYLON.Vector3.Zero());
+                    camera.attachControl(this.canvas, true);
+
+                    // Add lights
                     const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), this.scene);
-                    
-                    this.log('Setting up XR...');
-                    const xr = await this.scene.createDefaultXRExperienceAsync({
-                        uiOptions: { sessionMode: "immersive-ar" }
+                    light.intensity = 1;
+
+                    // Check WebXR support
+                    const xrSupported = await BABYLON.WebXRSessionManager.IsSessionSupportedAsync('immersive-ar');
+                    if (!xrSupported) {
+                        throw new Error("WebXR AR not supported on this device/browser");
+                    }
+
+                    // Initialize WebXR
+                    this.xrHelper = await this.scene.createDefaultXRExperienceAsync({
+                        uiOptions: {
+                            sessionMode: "immersive-ar",
+                            referenceSpaceType: "local-floor"
+                        }
                     });
-                    
-                    this.setupModelUpload();
+
+                    this.debug("XR Experience created");
+
+                    // Create default sphere
                     this.createDefaultModel();
-                    
-                    this.engine.runRenderLoop(() => this.scene.render());
-                    window.addEventListener("resize", () => this.engine.resize());
-                    
-                    this.log('Initialization complete');
+
+                    // Setup UI handlers
+                    this.setupUIHandlers();
+
+                    // Start rendering
+                    this.engine.runRenderLoop(() => {
+                        this.scene.render();
+                    });
+
+                    this.updateStatus("Ready - Click 'Start AR' to begin");
                 } catch (error) {
-                    this.log('Initialization failed', error);
+                    this.debug(`Error during initialization: ${error.message}`);
+                    this.updateStatus(`Error: ${error.message}`);
                 }
             }
 
             createDefaultModel() {
-                try {
-                    this.log('Creating default model...');
-                    const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {
-                        diameter: 0.2
-                    }, this.scene);
-                    sphere.position = new BABYLON.Vector3(0, 1.6, -0.5);
-                    this.currentModel = sphere;
-                    
-                    this.scene.registerBeforeRender(() => {
-                        if (this.currentModel && this.currentModel.name === "sphere") {
-                            this.currentModel.rotate(BABYLON.Vector3.Up(), 0.01);
-                        }
-                    });
-                    this.log('Default model created');
-                } catch (error) {
-                    this.log('Error creating default model', error);
-                }
+                const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {
+                    diameter: 0.2,
+                    segments: 32
+                }, this.scene);
+                
+                // Create material for better visibility
+                const material = new BABYLON.StandardMaterial("sphereMaterial", this.scene);
+                material.diffuseColor = new BABYLON.Color3(1, 0, 0); // Red color
+                material.emissiveColor = new BABYLON.Color3(0.2, 0, 0); // Slight glow
+                sphere.material = material;
+
+                sphere.position = new BABYLON.Vector3(0, 1.6, -0.5);
+                this.currentModel = sphere;
+                this.debug("Default sphere created");
             }
 
-            setupModelUpload() {
-                const fileInput = document.getElementById("model-upload");
-                
-                fileInput.onchange = async (event) => {
-                    const file = event.target.files?.[0];
-                    if (!file) {
-                        this.log('No file selected');
-                        return;
-                    }
-
-                    this.log(`Starting to load model: ${file.name}`);
-                    
+            setupUIHandlers() {
+                // AR Button
+                document.getElementById("startAR").onclick = async () => {
                     try {
-                        // Create blob URL
-                        const blobUrl = URL.createObjectURL(file);
-                        this.log('Created blob URL');
-
-                        // Remove existing model
-                        if (this.currentModel) {
-                            this.currentModel.dispose();
-                            this.log('Disposed existing model');
-                        }
-
-                        // Load the model
-                        this.log('Importing mesh...');
-                        const result = await BABYLON.SceneLoader.ImportMeshAsync(
-                            "", 
-                            blobUrl,
-                            "",
-                            this.scene
-                        );
-
-                        this.log('Mesh imported successfully');
-                        
-                        // Get the root mesh
-                        this.currentModel = result.meshes[0];
-                        
-                        // Position the model
-                        const height = parseFloat(document.getElementById("height").value);
-                        this.currentModel.position = new BABYLON.Vector3(0, height, -0.5);
-                        
-                        // Auto-scale the model
-                        const boundingInfo = this.currentModel.getHierarchyBoundingVectors();
-                        const size = boundingInfo.max.subtract(boundingInfo.min);
-                        const maxSize = Math.max(size.x, size.y, size.z);
-                        if (maxSize > 1) {
-                            const scale = 1 / maxSize;
-                            this.currentModel.scaling = new BABYLON.Vector3(scale, scale, scale);
-                        }
-                        
-                        this.log('Model loaded and positioned successfully');
-                        
-                        // Clean up
-                        URL.revokeObjectURL(blobUrl);
-                        
+                        this.debug("Entering AR...");
+                        await this.xrHelper.baseExperience.enterXRAsync("immersive-ar", "local-floor");
+                        this.isInAR = true;
+                        this.updateStatus("AR session started");
                     } catch (error) {
-                        this.log('Error loading model', error);
-                        this.createDefaultModel();
+                        this.debug(`Error entering AR: ${error.message}`);
+                        this.updateStatus(`AR Error: ${error.message}`);
                     }
                 };
 
-                // Height control
-                const heightSlider = document.getElementById("height");
-                heightSlider.addEventListener("input", (e) => {
-                    const height = parseFloat(e.target.value);
-                    document.getElementById("height-value").textContent = height.toFixed(1);
+                // Model Upload
+                document.getElementById("modelUpload").onchange = async (event) => {
+                    if (event.target.files && event.target.files[0]) {
+                        try {
+                            this.debug("Starting model load...");
+                            const file = event.target.files[0];
+                            const url = URL.createObjectURL(file);
+
+                            // Remove existing model
+                            if (this.currentModel) {
+                                this.currentModel.dispose();
+                            }
+
+                            this.debug("Loading model...");
+                            const result = await BABYLON.SceneLoader.ImportMeshAsync("", url, "", this.scene);
+                            
+                            this.currentModel = result.meshes[0];
+                            const height = parseFloat(document.getElementById("heightSlider").value);
+                            this.currentModel.position = new BABYLON.Vector3(0, height, -0.5);
+
+                            // Auto-scale
+                            const boundingInfo = this.currentModel.getHierarchyBoundingVectors();
+                            const size = boundingInfo.max.subtract(boundingInfo.min);
+                            const maxSize = Math.max(size.x, size.y, size.z);
+                            const scale = 0.2 / maxSize; // Scale to 20cm
+                            this.currentModel.scaling = new BABYLON.Vector3(scale, scale, scale);
+
+                            URL.revokeObjectURL(url);
+                            this.debug("Model loaded successfully");
+                            this.updateStatus("Model loaded - Ready for AR");
+                        } catch (error) {
+                            this.debug(`Error loading model: ${error.message}`);
+                            this.updateStatus("Error loading model");
+                            this.createDefaultModel();
+                        }
+                    }
+                };
+
+                // Height Slider
+                document.getElementById("heightSlider").oninput = (event) => {
+                    const height = parseFloat(event.target.value);
+                    document.getElementById("heightValue").textContent = height.toFixed(1);
                     if (this.currentModel) {
                         this.currentModel.position.y = height;
                     }
-                });
-            }
+                };
 
-            updateStatus(message) {
-                const status = document.getElementById("status");
-                status.textContent = message;
+                // Handle window resize
+                window.addEventListener("resize", () => {
+                    this.engine.resize();
+                });
             }
         }
 
+        // Initialize when page loads
         window.addEventListener("DOMContentLoaded", () => {
-            new FloatingModelViewer();
+            new ARModelViewer();
         });
     </script>
 </body>
