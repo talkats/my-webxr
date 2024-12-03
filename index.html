@@ -11,7 +11,12 @@
 </head>
 <body>
     <canvas id="renderCanvas"></canvas>
-    <script type="module" src="./src/FloatingModelViewer.js"></script>
+
+    <!-- Babylon.js Scripts (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/@babylonjs/core@6.20.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babylonjs/loaders@6.20.0"></script>
+
+    <!-- Floating Model Viewer Script -->
     <script type="module">
         import FloatingModelViewer from './src/FloatingModelViewer.js';
         new FloatingModelViewer();
