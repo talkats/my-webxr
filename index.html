@@ -22,18 +22,27 @@
     <!-- Babylon.js Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@babylonjs/core@6.20.0/babylon.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babylonjs/loaders@6.20.0/babylon.glTF2FileLoader.js"></script>
+</head>
+<body>
+    <div id="status">Initializing...</div>
+    <canvas id="renderCanvas"></canvas>
 
     <!-- FloatingModelViewer Script -->
     <script src="./src/FloatingModelViewer.js" defer></script>
-</head>
-<body>
-    <div id="status">Initializing!</div>
-    <canvas id="renderCanvas"></canvas>
 
-    <!-- Inline Script to Instantiate the Viewer -->
+    <!-- Inline Script to Ensure Babylon.js is Loaded -->
     <script defer>
         document.addEventListener("DOMContentLoaded", () => {
             const statusDiv = document.getElementById("status");
+
+            // Check if BABYLON is available
+            if (typeof BABYLON === "undefined") {
+                console.error("BABYLON is not defined. Check Babylon.js script loading.");
+                statusDiv.textContent = "Error: Babylon.js not loaded.";
+                return;
+            }
+
+            // Initialize FloatingModelViewer
             try {
                 new FloatingModelViewer();
                 statusDiv.textContent = "App is running!";
