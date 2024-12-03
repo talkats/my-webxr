@@ -41,7 +41,7 @@ class FloatingModelViewer {
             }
 
             // Load floating model
-            await this.loadModel("C:\Tal m3Dical\Companies\Tals\AR\my-webxr-app\asset\color heart.glb");
+            await this.loadModel("https://github.com/talkats/my-webxr/blob/d1dc39a858f3cfc80e5bbc309f25cbdac2e47f33/Spheres.glb");
         } catch (error) {
             console.error("Error setting up XR or loading features:", error);
         }
