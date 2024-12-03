@@ -19,96 +19,105 @@
         }
     </style>
 
-    <!-- Load Babylon.js Before Custom Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/@babylonjs/core@6.20.0/babylon.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@babylonjs/loaders@6.20.0/babylon.glTF2FileLoader.js"></script>
+    <!-- Babylon.js Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@babylonjs/core@6.20.0/babylon.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babylonjs/loaders@6.20.0/babylon.glTF2FileLoader.js" defer></script>
 </head>
 <body>
-    <div id="status">Initializing!</div>
+    <div id="status">Initializing...</div>
     <canvas id="renderCanvas"></canvas>
 
     <!-- Floating Model Viewer Script -->
-    <script>
-        class FloatingModelViewer {
-            constructor() {
-                console.log("Initializing FloatingModelViewer...");
-                this.canvas = document.getElementById("renderCanvas");
-                if (!this.canvas) {
-                    console.error("Canvas element not found!");
-                    return;
-                }
-                console.log("Canvas element found.");
-
-                this.engine = new BABYLON.Engine(this.canvas, true);
-                console.log("Babylon.js Engine initialized:", this.engine);
-
-                this.scene = new BABYLON.Scene(this.engine);
-                console.log("Scene created:", this.scene);
-
-                this.currentModel = null;
-                this.isModelGrabbed = false;
-                this.init();
+    <script defer>
+        // Ensure BABYLON is loaded before running the viewer
+        document.addEventListener("DOMContentLoaded", () => {
+            if (typeof BABYLON === "undefined") {
+                console.error("BABYLON is not defined. Check script loading.");
+                document.getElementById("status").textContent = "Error: Babylon.js not loaded.";
+                return;
             }
 
-            async init() {
-                try {
-                    console.log("Setting up camera...");
-                    this.camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 1.6, -0.5), this.scene);
-                    this.camera.attachControl(this.canvas, true);
-                    this.camera.setTarget(BABYLON.Vector3.Zero());
-
-                    console.log("Adding lighting...");
-                    const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), this.scene);
-                    light.intensity = 1.0;
-
-                    console.log("Loading model...");
-                    await this.loadModel("https://raw.githubusercontent.com/talkats/my-webxr/d1dc39a858f3cfc80e5bbc309f25cbdac2e47f33/Spheres.glb");
-                    console.log("Model loaded successfully.");
-
-                    console.log("Starting render loop...");
-                    this.engine.runRenderLoop(() => this.scene.render());
-                    console.log("Render loop started.");
-
-                    window.addEventListener("resize", () => this.engine.resize());
-                } catch (error) {
-                    console.error("Initialization failed:", error);
-                }
-            }
-
-            async loadModel(url) {
-                console.log(`Attempting to load model from: ${url}`);
-                try {
-                    const result = await BABYLON.SceneLoader.ImportMeshAsync("", url, "", this.scene);
-                    console.log("Model loaded result:", result);
-
-                    this.currentModel = result.meshes[0] || null;
-                    if (!this.currentModel) {
-                        throw new Error("No meshes found in the model.");
+            class FloatingModelViewer {
+                constructor() {
+                    console.log("Initializing FloatingModelViewer...");
+                    this.canvas = document.getElementById("renderCanvas");
+                    if (!this.canvas) {
+                        console.error("Canvas element not found!");
+                        return;
                     }
+                    console.log("Canvas element found.");
 
-                    console.log("Model added to scene:", this.currentModel);
-                    this.currentModel.position = new BABYLON.Vector3(0, 1.6, -0.5);
+                    this.engine = new BABYLON.Engine(this.canvas, true);
+                    console.log("Babylon.js Engine initialized:", this.engine);
 
-                    // Add rotation animation
-                    this.scene.registerBeforeRender(() => {
-                        if (!this.isModelGrabbed && this.currentModel) {
-                            this.currentModel.rotate(BABYLON.Vector3.Up(), 0.005);
+                    this.scene = new BABYLON.Scene(this.engine);
+                    console.log("Scene created:", this.scene);
+
+                    this.currentModel = null;
+                    this.isModelGrabbed = false;
+                    this.init();
+                }
+
+                async init() {
+                    try {
+                        console.log("Setting up camera...");
+                        this.camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 1.6, -0.5), this.scene);
+                        this.camera.attachControl(this.canvas, true);
+                        this.camera.setTarget(BABYLON.Vector3.Zero());
+
+                        console.log("Adding lighting...");
+                        const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), this.scene);
+                        light.intensity = 1.0;
+
+                        console.log("Loading model...");
+                        await this.loadModel("https://raw.githubusercontent.com/talkats/my-webxr/d1dc39a858f3cfc80e5bbc309f25cbdac2e47f33/Spheres.glb");
+                        console.log("Model loaded successfully.");
+
+                        console.log("Starting render loop...");
+                        this.engine.runRenderLoop(() => this.scene.render());
+                        console.log("Render loop started.");
+
+                        window.addEventListener("resize", () => this.engine.resize());
+                    } catch (error) {
+                        console.error("Initialization failed:", error);
+                    }
+                }
+
+                async loadModel(url) {
+                    console.log(`Attempting to load model from: ${url}`);
+                    try {
+                        const result = await BABYLON.SceneLoader.ImportMeshAsync("", url, "", this.scene);
+                        console.log("Model loaded result:", result);
+
+                        this.currentModel = result.meshes[0] || null;
+                        if (!this.currentModel) {
+                            throw new Error("No meshes found in the model.");
                         }
-                    });
-                } catch (error) {
-                    console.error("Error loading model:", error);
+
+                        console.log("Model added to scene:", this.currentModel);
+                        this.currentModel.position = new BABYLON.Vector3(0, 1.6, -0.5);
+
+                        // Add rotation animation
+                        this.scene.registerBeforeRender(() => {
+                            if (!this.isModelGrabbed && this.currentModel) {
+                                this.currentModel.rotate(BABYLON.Vector3.Up(), 0.005);
+                            }
+                        });
+                    } catch (error) {
+                        console.error("Error loading model:", error);
+                    }
                 }
             }
-        }
 
-        const statusDiv = document.getElementById('status');
-        try {
-            new FloatingModelViewer();
-            statusDiv.textContent = 'App is running!';
-        } catch (error) {
-            statusDiv.textContent = 'Error initializing the app.';
-            console.error('Initialization error:', error);
-        }
+            const statusDiv = document.getElementById("status");
+            try {
+                new FloatingModelViewer();
+                statusDiv.textContent = "App is running!";
+            } catch (error) {
+                statusDiv.textContent = "Error initializing the app.";
+                console.error("Initialization error:", error);
+            }
+        });
     </script>
 </body>
 </html>
