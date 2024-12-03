@@ -14,55 +14,59 @@ class FloatingModelViewer {
     async init() {
         try {
             console.log("Setting up camera...");
-            // Camera setup
             this.camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 1.6, -0.5), this.scene);
             this.camera.attachControl(this.canvas, true);
             this.camera.setTarget(BABYLON.Vector3.Zero());
 
-            // Lighting
             console.log("Adding lighting...");
             const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), this.scene);
             light.intensity = 1.0;
 
-            // XR setup
-            console.log("Setting up XR...");
+            console.log("Creating WebXR experience...");
             const xr = await this.scene.createDefaultXRExperienceAsync({
                 uiOptions: { sessionMode: "immersive-ar" },
                 optionalFeatures: ["hand-tracking"]
             });
 
-            console.log("XR setup complete.");
-            // Enable hand tracking
-            const handTrackingFeature = xr.baseExperience.featuresManager.enableFeature(
-                BABYLON.WebXRFeatureName.HAND_TRACKING, 
-                "latest",
-                { xrInput: xr.input }
-            );
+            // Log XR session events
+            xr.baseExperience.sessionManager.onXRSessionInit.add(() => {
+                console.log("WebXR session started.");
+            });
 
-            if (handTrackingFeature) {
-                console.log("Hand tracking enabled.");
-                this.setupHandTracking(xr);
-            } else {
-                console.warn("Hand tracking feature could not be enabled.");
-            }
+            xr.baseExperience.sessionManager.onXRSessionEnded.add(() => {
+                console.log("WebXR session ended.");
+            });
 
-            // Load model
+            console.log("WebXR experience created:", xr);
+
             console.log("Loading model...");
             await this.loadModel("https://raw.githubusercontent.com/talkats/my-webxr/d1dc39a858f3cfc80e5bbc309f25cbdac2e47f33/Spheres.glb");
             console.log("Model loaded successfully.");
 
-            // Start render loop
             console.log("Starting render loop...");
             this.engine.runRenderLoop(() => this.scene.render());
+            console.log("Render loop started.");
 
-            // Handle window resize
             window.addEventListener("resize", () => this.engine.resize());
         } catch (error) {
             console.error("Initialization failed:", error);
+
+            // Fallback camera
+            console.log("Enabling fallback camera...");
+            this.camera = new BABYLON.ArcRotateCamera(
+                "arcCamera",
+                Math.PI / 2,
+                Math.PI / 3,
+                2,
+                BABYLON.Vector3.Zero(),
+                this.scene
+            );
+            this.camera.attachControl(this.canvas, true);
         }
     }
 
     async loadModel(url) {
+        console.log(`Loading model from: ${url}`);
         try {
             const result = await BABYLON.SceneLoader.ImportMeshAsync("", url, "", this.scene);
             this.currentModel = result.meshes[0] || null;
@@ -71,20 +75,14 @@ class FloatingModelViewer {
                 throw new Error("No meshes found in the model.");
             }
 
-            // Position model
+            console.log("Model prepared and added to the scene.");
             this.currentModel.position = new BABYLON.Vector3(0, 1.6, -0.5);
 
-            // Add rotation animation
             this.scene.registerBeforeRender(() => {
                 if (!this.isModelGrabbed && this.currentModel) {
-                    this.currentModel.rotate(
-                        BABYLON.Vector3.Up(),
-                        0.005
-                    );
+                    this.currentModel.rotate(BABYLON.Vector3.Up(), 0.005);
                 }
             });
-
-            console.log("Model prepared and added to the scene.");
         } catch (error) {
             console.error("Error loading model:", error);
         }
