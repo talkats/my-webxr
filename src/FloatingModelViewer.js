@@ -35,13 +35,14 @@ class FloatingModelViewer {
             );
 
             if (handTrackingFeature) {
+                console.log("Hand tracking enabled.");
                 this.setupHandTracking(xr);
             } else {
                 console.warn("Hand tracking feature could not be enabled.");
             }
 
             // Load floating model
-            await this.loadModel("https://github.com/talkats/my-webxr/blob/d1dc39a858f3cfc80e5bbc309f25cbdac2e47f33/Spheres.glb");
+            await this.loadModel("https://raw.githubusercontent.com/talkats/my-webxr/d1dc39a858f3cfc80e5bbc309f25cbdac2e47f33/Spheres.glb");
         } catch (error) {
             console.error("Error setting up XR or loading features:", error);
         }
@@ -61,6 +62,8 @@ class FloatingModelViewer {
             if (!this.currentModel) {
                 throw new Error("No meshes found in the model.");
             }
+
+            console.log("Model loaded successfully:", this.currentModel);
 
             // Position model at eye level
             this.currentModel.position = new BABYLON.Vector3(0, 1.6, -0.5);
@@ -86,11 +89,13 @@ class FloatingModelViewer {
 
         xr.input.onControllerAddedObservable.add((controller) => {
             if (controller.inputSource.hand) {
+                console.log("Hand tracking controller added.");
+
                 // Visual feedback for hand tracking
                 controller.onHandJointsUpdatedObservable.add((joints) => {
                     const thumbTip = joints[BABYLON.WebXRHand.THUMB_TIP]?.position;
                     const indexTip = joints[BABYLON.WebXRHand.INDEX_TIP]?.position;
-                    
+
                     if (thumbTip && indexTip) {
                         // Calculate pinch
                         const pinchDistance = BABYLON.Vector3.Distance(thumbTip, indexTip);
