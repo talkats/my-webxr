@@ -1,4 +1,4 @@
-import { Engine, Scene, ArcRotateCamera, HemisphericLight, Vector3, SceneLoader, AbstractMesh, WebXRSessionManager, WebXRFeaturesManager, WebXRFeatureName, WebXRDefaultExperience, WebXRHandTracking } from "@babylonjs/core";
+import { Engine, Scene, ArcRotateCamera, HemisphericLight, Vector3, SceneLoader, AbstractMesh, WebXRDefaultExperience, WebXRFeatureName, WebXRHandTracking } from "@babylonjs/core";
 import "@babylonjs/loaders";
 import "@babylonjs/core/Helpers/sceneHelpers";
 import "@babylonjs/inspector";
@@ -39,13 +39,36 @@ async function createScene(engine: Engine): Promise<Scene> {
     }
   }) as WebXRHandTracking;
 
-  // Simple gesture logic (very basic placeholder)
-  // On each frame, if hands are present, detect pinch distance to scale
+  // Variables to store references to the left and right hands
+  let leftHand: any;   // Replace 'any' with 'WebXRHand' if typed imports are available
+  let rightHand: any;
+
+  // Track when hands are added
+  xr.input.onControllerAddedObservable.add((xrInputSource) => {
+    if (xrInputSource.inputSource.hand) {
+      const hand = xrInputSource.motionController;
+      if (xrInputSource.inputSource.handedness === 'left') {
+        leftHand = hand;
+      } else if (xrInputSource.inputSource.handedness === 'right') {
+        rightHand = hand;
+      }
+    }
+  });
+
+  // Track when hands are removed
+  xr.input.onControllerRemovedObservable.add((xrInputSource) => {
+    if (xrInputSource.inputSource.hand) {
+      if (xrInputSource.inputSource.handedness === 'left') {
+        leftHand = undefined;
+      } else if (xrInputSource.inputSource.handedness === 'right') {
+        rightHand = undefined;
+      }
+    }
+  });
+
+  // Scene loop to handle gestures
   scene.onBeforeRenderObservable.add(() => {
     if (!importedMesh) return;
-
-    const leftHand = handTracking.getHandById("left");
-    const rightHand = handTracking.getHandById("right");
 
     if (leftHand && rightHand) {
       const leftIndexTip = leftHand.getJointMesh("index-finger-tip");
@@ -54,19 +77,16 @@ async function createScene(engine: Engine): Promise<Scene> {
       if (leftIndexTip && rightIndexTip) {
         // Measure distance between two index fingertips
         const distance = Vector3.Distance(leftIndexTip.position, rightIndexTip.position);
-
-        // Use distance to scale the mesh
-        // Closer fingers = smaller scale, farther = bigger scale
+        // Scale the mesh based on fingertip distance
         importedMesh.scaling = new Vector3(distance, distance, distance);
       }
     }
 
-    // For move and rotate, you might track a single hand’s palm position and rotation.
-    // E.g., if we have left hand only, move the mesh with the palm:
+    // If only one hand (left) is present, move the mesh with the palm
     if (leftHand && !rightHand) {
       const palm = leftHand.getJointMesh("wrist");
-      if (palm && importedMesh) {
-        importedMesh.position = palm.position.clone();
+      if (palm) {
+        importedMesh.position.copyFrom(palm.position);
       }
     }
   });
